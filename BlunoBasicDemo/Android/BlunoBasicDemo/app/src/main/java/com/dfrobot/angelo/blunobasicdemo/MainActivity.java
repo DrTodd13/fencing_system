@@ -20,6 +20,8 @@ public class MainActivity extends Activity {
 	private TextView receivedTextLeft, receivedTextRight;
 	private FencingBluno fencingBlunoLeft, fencingBlunoRight;
 
+	private static final boolean rightActive = true;
+
 	public MainActivity() {
 	}
 
@@ -43,13 +45,19 @@ public class MainActivity extends Activity {
 				buttonSendLeft,
 				sendTextLeft,
 				receivedTextLeft,
-				" left");
-		fencingBlunoRight = new FencingBluno(this,
-				buttonScanRight,
-				buttonSendRight,
-				sendTextRight,
-				receivedTextRight,
-				" right");
+				" left",
+				0);
+
+		if (rightActive) {
+			fencingBlunoRight = new FencingBluno(this,
+					buttonScanRight,
+					buttonSendRight,
+					sendTextRight,
+					receivedTextRight,
+					" right",
+					1);
+		}
+
 		fencingBlunoLeft.getBlunoLibrary().request(1000, new BlunoLibrary.OnPermissionsResult() {
 			@Override
 			public void OnSuccess() {
@@ -62,23 +70,26 @@ public class MainActivity extends Activity {
 				Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
 			}
 		});
-		fencingBlunoRight.getBlunoLibrary().request(1001, new BlunoLibrary.OnPermissionsResult() {
-			@Override
-			public void OnSuccess() {
-				//Toast.makeText(MainActivity.this,"权限请求成功",Toast.LENGTH_SHORT).show();
-				// intentionally do nothing
-			}
 
-			@Override
-			public void OnFail(List<String> noPermissions) {
-				Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
-			}
-		});
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().request(1001, new BlunoLibrary.OnPermissionsResult() {
+				@Override
+				public void OnSuccess() {
+					//Toast.makeText(MainActivity.this,"权限请求成功",Toast.LENGTH_SHORT).show();
+					// intentionally do nothing
+				}
 
-		fencingBlunoLeft.getBlunoLibrary().initialize();                                                    //onCreate Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().initialize();
+				@Override
+				public void OnFail(List<String> noPermissions) {
+					Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
+				}
+			});
+		}
 
-		// Using default baudrate of 115200
+		fencingBlunoLeft.getBlunoLibrary().initialize();
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().initialize();
+		}
 
 		buttonSendLeft.setOnClickListener(new OnClickListener() {
 
@@ -89,105 +100,88 @@ public class MainActivity extends Activity {
 			}
 		});
 
-		buttonSendRight.setOnClickListener(new OnClickListener() {
+		if (rightActive) {
+			buttonSendRight.setOnClickListener(new OnClickListener() {
 
-			@Override
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
-				fencingBlunoRight.getBlunoLibrary().serialSend(sendTextRight.getText().toString());                //send the data to the BLUNO
-			}
-		});
+				@Override
+				public void onClick(View v) {
+					// TODO Auto-generated method stub
+					fencingBlunoRight.getBlunoLibrary().serialSend(sendTextRight.getText().toString());                //send the data to the BLUNO
+				}
+			});
+		}
+
 		buttonScanLeft.setOnClickListener(new OnClickListener() {
 
 			@Override
 			public void onClick(View v) {
 				// TODO Auto-generated method stub
-				fencingBlunoLeft.getBlunoLibrary().buttonScanOnClickProcess();                                        //Alert Dialog for selecting the BLE device
+				fencingBlunoLeft.buttonScanOnClickProcess();                                        //Alert Dialog for selecting the BLE device
 			}
 		});
 
-		buttonScanRight.setOnClickListener(new OnClickListener() {
+		if (rightActive) {
+			buttonScanRight.setOnClickListener(new OnClickListener() {
 
-			@Override
-			public void onClick(View v) {
-				// TODO Auto-generated method stub
-				fencingBlunoRight.getBlunoLibrary().buttonScanOnClickProcess();                                        //Alert Dialog for selecting the BLE device
-			}
-		});
+				@Override
+				public void onClick(View v) {
+					// TODO Auto-generated method stub
+					fencingBlunoRight.buttonScanOnClickProcess();                                        //Alert Dialog for selecting the BLE device
+				}
+			});
+		}
 	}
 
 	protected void onResume() {
 		super.onResume();
 		System.out.println("BlUNOActivity onResume");
-		fencingBlunoLeft.getBlunoLibrary().onResumeProcess();                                                        //onResume Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().onResumeProcess();
+		fencingBlunoLeft.getBlunoLibrary().resume();
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().resume();
+		}
 	}
 
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-		fencingBlunoLeft.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);                    //onActivityResult Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);
+		assert false;
+		//fencingBlunoLeft.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);                    //onActivityResult Process by BlunoLibrary
+		//fencingBlunoRight.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);
 		super.onActivityResult(requestCode, resultCode, data);
 	}
 
 	@Override
 	protected void onPause() {
 		super.onPause();
-		fencingBlunoLeft.getBlunoLibrary().onPauseProcess();                                                        //onPause Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().onPauseProcess();
+		fencingBlunoLeft.getBlunoLibrary().pause();
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().pause();
+		}
 	}
 
 	protected void onStop() {
 		super.onStop();
-		fencingBlunoLeft.getBlunoLibrary().onStopProcess();                                                        //onStop Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().onStopProcess();
+		assert false;
+		//fencingBlunoLeft.getBlunoLibrary().stop();                                                        //onStop Process by BlunoLibrary
+		//fencingBlunoRight.getBlunoLibrary().onStopProcess();
 	}
 
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		fencingBlunoLeft.getBlunoLibrary().onDestroyProcess();                                                        //onDestroy Process by BlunoLibrary
-		fencingBlunoRight.getBlunoLibrary().onDestroyProcess();
-	}
-
-	/*
-	@Override
-	public void onConnectionStateChange(connectionStateEnum theConnectionState) {//Once connection state changes, this function will be called
-		switch (theConnectionState) {											//Four connection state
-		case isConnected:
-			buttonScanLeft.setText("Connected Left");
-			break;
-		case isConnecting:
-			buttonScanLeft.setText("Connecting");
-			break;
-		case isToScan:
-			buttonScanLeft.setText("Scan Left");
-			break;
-		case isScanning:
-			buttonScanLeft.setText("Scanning");
-			break;
-		case isDisconnecting:
-			buttonScanLeft.setText("isDisconnecting");
-			break;
-		default:
-			break;
+		fencingBlunoLeft.getBlunoLibrary().destroy();
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().destroy();
 		}
 	}
 
-	@Override
-	public void onSerialReceived(String theString) {							//Once connection data received, this function will be called
-		// TODO Auto-generated method stub
-		serialReceivedTextLeft.append(theString);							//append the text into the EditText
-		//The Serial data from the BLUNO may be sub-packaged, so using a buffer to hold the String is a good choice.
-		((ScrollView)serialReceivedTextLeft.getParent()).fullScroll(View.FOCUS_DOWN);
-	}
-	 */
 
 	@Override
 	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
 		fencingBlunoLeft.getBlunoLibrary().onRequestPermissionsResult(requestCode, permissions, grantResults);
-		fencingBlunoRight.getBlunoLibrary().onRequestPermissionsResult(requestCode, permissions, grantResults);
+		if (rightActive) {
+			fencingBlunoRight.getBlunoLibrary().onRequestPermissionsResult(requestCode, permissions, grantResults);
+		}
 		super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 	}
 }
