@@ -18,14 +18,16 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class FencingBluno implements BlunoLibrary.BlunoListener {
     private final MainActivity mainActivity;
 
     private final BlunoLibrary blunoLibrary;
     Button scan;
-    Button send;
-    EditText editField;
+    Button clear;
+    //EditText editField;
     TextView displayText;
     String postfix;
     int slot;
@@ -35,26 +37,36 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
 
     private LeDeviceListAdapter mLeDeviceListAdapter=null;
     AlertDialog mScanDeviceDialog;
+    FencingBluno mOther;
+
+    String mReceived;
+
+    private final Timer timer = new Timer();
+
     public FencingBluno(MainActivity main,
                         Button scan,
-                        Button send,
-                        EditText editField,
+                        Button clear,
+                        //EditText editField,
                         TextView displayText,
                         String postfix,
                         int slot) {
         blunoLibrary = new BlunoLibrary(main, this, slot);
         mainActivity=main;
         this.scan = scan;
-        this.send = send;
-        this.editField = editField;
+        this.clear = clear;
+        //this.editField = editField;
         this.displayText = displayText;
         this.postfix = postfix;
         this.slot = slot;
+        mReceived = "";
         blunoLibrary.setBlunoListener(this);
 
         createScanDeviceDialog();
     }
 
+    public void setOther(FencingBluno other) {
+        mOther = other;
+    }
     private void createScanDeviceDialog() {
         // Initializes list view adapter.
         //DeviceListAdapter
@@ -142,8 +154,14 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
             @Override
             public void run() {
                 System.out.println("onDeviceDetected ");
-                mLeDeviceListAdapter.addDevice(device);
-                mLeDeviceListAdapter.notifyDataSetChanged();
+                String dName = device.getName();
+                if (dName == null || dName.equals("")) {
+                    return;
+                }
+                if (!mainActivity.isAddressConnected(device.getAddress())) {
+                    mLeDeviceListAdapter.addDevice(device);
+                    mLeDeviceListAdapter.notifyDataSetChanged();
+                }
             }
         });
     }
@@ -154,6 +172,7 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
             case isConnected:
                 scan.setText("Connected" + postfix);
                 displayText.setText("");
+                mainActivity.addConnectedAddress(mDeviceAddress);
                 break;
             case isConnecting:
                 scan.setText("Connecting");
@@ -167,6 +186,8 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
                 break;
             case isDisconnecting:
                 scan.setText("isDisconnecting");
+                mainActivity.removeConnectedAddress(mDeviceAddress);
+                mLeDeviceListAdapter.clear();
                 break;
             default:
                 break;
@@ -305,17 +326,66 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
     }
      */
 
-    @Override
-    public void onSerialReceived(String data) {							//Once connection data received, this function will be called
-        // TODO Auto-generated method stub
-        int tlen = displayText.getText().length();
-        int keepChars = 500;
-        if (tlen > keepChars) {
-            displayText.setText(displayText.getText().subSequence(tlen - keepChars, tlen));
+    public void makeClear() {
+        displayText.setText("");
+        //blunoLibrary.serialSend("2");
+    }
+
+    private void processReceived() {
+        int textLength = displayText.getText().length();
+        int keepChars = 1500;
+        if (textLength > keepChars) {
+            displayText.setText(displayText.getText().subSequence(textLength - keepChars, textLength));
         }
-        displayText.append(data);							//append the text into the EditText
+
+        while (!mReceived.isEmpty()) {
+            if (mReceived.charAt(0) == '1') {
+                displayText.append("Is touched! ");
+                mReceived = mReceived.substring(1);
+                timer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        synchronized (FencingBluno.this) {
+                            blunoLibrary.serialSend("1");
+                            //mainActivity.runOnUiThread(() -> displayText.append("Task run "));
+                        }
+                    }
+                }, 5000);
+                //displayText.append("Task scheduled ");
+            } else if (mReceived.charAt(0) == '2') {
+                displayText.append("Touch! ");
+                mReceived = mReceived.substring(1);
+            } else if (mReceived.charAt(0) == '3') {
+                if (mReceived.length() >= 6) {
+                    //displayText.append(mReceived);
+                    String sslen = mReceived.substring(1,5).trim();
+                    //assert (sslen.length() == 4);
+                    int slen = Integer.parseInt(sslen);
+                    if (mReceived.length() >= 1 + 4 + slen) {
+                        displayText.append(mReceived.substring(5, 5 + slen));
+                        displayText.append(" ");
+                        mReceived = mReceived.substring(5 + slen);
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                displayText.append("Protocol error: ");
+                displayText.append(mReceived);
+                displayText.append(" " + String.valueOf(mReceived.length()));
+                break;
+            }
+        }
+
         //The Serial data from the BLUNO may be sub-packaged, so using a buffer to hold the String is a good choice.
         ((ScrollView)displayText.getParent()).fullScroll(View.FOCUS_DOWN);
+    }
+    @Override
+    public void onSerialReceived(String data) {							//Once connection data received, this function will be called
+        mReceived += data;
+        processReceived();
     }
 
     static class ViewHolder {

@@ -54,7 +54,7 @@ public class BlunoLibrary {
 	private String mBaudrateBuffer;
 	private boolean mInitialized, mReceiverRegistered = false;
 
-	private static BluetoothGattCharacteristic mSCharacteristic, mModelNumberCharacteristic, mSerialPortCharacteristic, mCommandCharacteristic;
+	private /* static */ BluetoothGattCharacteristic mSCharacteristic, mModelNumberCharacteristic, mSerialPortCharacteristic, mCommandCharacteristic;
 	private BluetoothLeService mBluetoothLeService = null;
 	private BluetoothLeService2 mBluetoothLeService2 = null;
 	private BluetoothAdapter mBluetoothAdapter;
