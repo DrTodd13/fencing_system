@@ -328,6 +328,7 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
 
     public void makeClear() {
         displayText.setText("");
+        mReceived = "";
         //blunoLibrary.serialSend("2");
     }
 
@@ -339,9 +340,11 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
         }
 
         while (!mReceived.isEmpty()) {
+            System.out.println("Before: " + mReceived);
             if (mReceived.charAt(0) == '1') {
                 displayText.append("Is touched! ");
                 mReceived = mReceived.substring(1);
+                System.out.println("After1: " + mReceived);
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
@@ -355,16 +358,19 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
             } else if (mReceived.charAt(0) == '2') {
                 displayText.append("Touch! ");
                 mReceived = mReceived.substring(1);
+                System.out.println("After2: " + mReceived);
             } else if (mReceived.charAt(0) == '3') {
                 if (mReceived.length() >= 6) {
                     //displayText.append(mReceived);
                     String sslen = mReceived.substring(1,5).trim();
                     //assert (sslen.length() == 4);
                     int slen = Integer.parseInt(sslen);
+                    System.out.println("Length: " + slen);
                     if (mReceived.length() >= 1 + 4 + slen) {
                         displayText.append(mReceived.substring(5, 5 + slen));
                         displayText.append(" ");
                         mReceived = mReceived.substring(5 + slen);
+                        System.out.println("After3: " + mReceived);
                     } else {
                         break;
                     }
