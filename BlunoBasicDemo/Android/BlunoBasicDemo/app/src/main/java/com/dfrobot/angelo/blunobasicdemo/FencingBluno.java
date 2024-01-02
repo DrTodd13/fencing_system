@@ -345,6 +345,7 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
                 displayText.append("Is touched! ");
                 mReceived = mReceived.substring(1);
                 System.out.println("After1: " + mReceived);
+                /*
                 timer.schedule(new TimerTask() {
                     @Override
                     public void run() {
@@ -353,8 +354,9 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
                             //mainActivity.runOnUiThread(() -> displayText.append("Task run "));
                         }
                     }
-                }, 5000);
+                }, 3000);
                 //displayText.append("Task scheduled ");
+                */
             } else if (mReceived.charAt(0) == '2') {
                 displayText.append("Touch! ");
                 mReceived = mReceived.substring(1);

@@ -8,17 +8,19 @@
 #define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
 #endif
 
-#define timeGap 1500  // millis
+#define timeGap 1500UL  // millis
 //#define lameDetectionPeriod 5000  // micros
 unsigned long prevTime = 0;
 //unsigned long startLameDetection0 = 0;
 //unsigned long startLameDetection1 = 0;
 bool doLameDetection = false;
+unsigned long lameDetectionDisableTime;
 //volatile unsigned long freqcount0 = 0;
 //volatile unsigned long freqcount1 = 0;
 //volatile unsigned long *freqcountVars[2] = {&freqcount0, &freqcount1};
 //unsigned long *startLameDetectionVars[2] = {&startLameDetection0, &startLameDetection1};
 int latestLameFreq = 0;
+int freqDiff = 0;
 int matchingTargetIntervals = 0;
 int printcount = -1;
 
@@ -36,13 +38,13 @@ short a0intervalmax = 0;
 short lastintervala0max = 0;
 //short a0samples[1024];
 short a0ind = 0;
-unsigned long sum0 = 0;
-unsigned long sum1 = 0;
-unsigned long sum2 = 0;
-unsigned long sum2squared = 0;
+// unsigned long sum0 = 0;
+// unsigned long sum1 = 0;
+// unsigned long sum2 = 0;
+// unsigned long sum2squared = 0;
 //int a2max = 0;
 int touchmode = 0;
-int touchmillistart;
+unsigned long touchmillistart;
 //int posttouchloops;
 //const int minPostTouchLowValLoops = 4;
 //int postTouchLowValLoops = 0;
@@ -51,17 +53,18 @@ int loopssincecondition = 0;
 //int loopsmode4 = 0;
 #define MODE4SIZE 600
 //short a2mode4[MODE4SIZE], i; 
-unsigned long otherSwordFreq = 0;
-unsigned long swordFreq = 0;
+int otherSwordFreq = 0;
+int swordFreq = 0;
 #define MARGIN 400
 #define LOOPSINCONDITION 10
 //bool sawoppfreq = false;
 //float freqsmode4[100];
 //unsigned long loopcount = 0;
 //unsigned long startmode4loopcount = 0;
-unsigned long modeFiveLowStartMicros = 0;
+//unsigned long modeFiveLowStartMicros = 0;
 //unsigned long startprintloopcount = 0;
-unsigned long ldpcount = 0;
+// unsigned long ldpcount = 0;
+long drhigh = 0;
 
 /*
 void disableInt0() {
@@ -99,12 +102,13 @@ void setup() {
   }
   uniqueid[2 * UniqueIDsize] = '\0';
   if (UniqueID[UniqueIDsize-1] == 0x77) {
-    otherSwordFreq = 3630;  // 3300 under 5V computer power
+    otherSwordFreq = 3900;  // 3300 under 5V computer power
     swordFreq = 4800; // 4600 under 5V computer power
   } else {
     otherSwordFreq = 4800; // 4600 under 5V computer power
-    swordFreq = 3630; // 3300 under 5V computer power
+    swordFreq = 3900; // 3300 under 5V computer power
   }
+  pinMode(d2pin, INPUT);
   //lowAnalog0Len = 150 * (500000 / swordFreq);
   //prevTime = millis();
   //startLameDetection = millis();
@@ -154,6 +158,7 @@ void loop() {
   //unsigned long curMicros = micros();
   unsigned long curMillis = millis();
 
+  /*
   if (Serial.available()) {
     //sendText("ReceivedByte");
     int incomingByte = Serial.read();
@@ -165,7 +170,7 @@ void loop() {
       } else {
         doLameDetection = true;
         //enableInt0(curMicros);
-        //sendText("Restarted Lame Detection! ");
+        sendText("RLD");
       }
     } else {
       sendText("UnknownCommand");
@@ -173,6 +178,7 @@ void loop() {
     }
     //Serial.write(incomingByte);
   }
+  */
 
   if (prevTime == 0) {
     prevTime = curMillis;
@@ -181,43 +187,65 @@ void loop() {
     doLameDetection = true;
   }
 
+  if (!doLameDetection) {
+    unsigned long timeDiff = curMillis - lameDetectionDisableTime;
+    if (timeDiff > 2000UL) {
+      doLameDetection = true;
+      sendText("RLD");
+    }
+  }
+
   int phigh=13, plow=13;
 
   if (doLameDetection) {
 #if 1
-    if (digitalRead(d2pin) == HIGH) {
-      //int found_pulses = 0;
-      for(int j = 0; j < NEEDED_PULSES; ++j) {
-        phigh = pulseIn(d2pin, LOW, 1000);
-        if (phigh != 0) {
-          plow = pulseIn(d2pin, HIGH, 1000);
-          if (plow != 0) {
-            latestLameFreq = 1000000 / (phigh + plow);
-            if (abs(latestLameFreq - otherSwordFreq) < MARGIN) {
-              if (j == NEEDED_PULSES - 1) {
-                sendIsTouched();
-                sendInt(latestLameFreq);
-                //disableInt0();
-                doLameDetection = false;
-              }
-            } else {
-              break;
+    //if (digitalRead(d2pin) == HIGH) {
+    drhigh++;
+    //int found_pulses = 0;
+    for(int j = 0; j < NEEDED_PULSES; ++j) {
+      phigh = pulseIn(d2pin, LOW, 1000);
+      if (phigh != 0) {
+        plow = pulseIn(d2pin, HIGH, 1000);
+        if (plow != 0) {
+          latestLameFreq = 1000000 / (phigh + plow);
+          freqDiff = latestLameFreq - otherSwordFreq;
+
+          //if (abs(latestLameFreq - otherSwordFreq) < MARGIN) {
+          if (freqDiff > -MARGIN && freqDiff < MARGIN) {
+            if (j == NEEDED_PULSES - 1) {
+              sendIsTouched();
+              sendInt(latestLameFreq);
+              //disableInt0();
+              doLameDetection = false;
+              lameDetectionDisableTime = curMillis;
             }
           } else {
+            /*
+            if (j > 0) {
+              sendText("BSF");
+              sendInt(latestLameFreq);
+            }
+            */
             break;
           }
         } else {
           break;
         }
+      } else {
+        break;
       }
     }
+  //}
 #else
     phigh = pulseIn(d2pin, HIGH, 1000);
     if (phigh != 0) {
       plow = pulseIn(d2pin, LOW, 1000);
       if (plow != 0) {
         latestLameFreq = 1000000 / (phigh + plow);
-        if (abs(latestLameFreq - otherSwordFreq) < MARGIN) {
+        freqDiff = latestLameFreq - otherSwordFreq;
+
+        //if (abs(latestLameFreq - otherSwordFreq) < MARGIN) {
+        if (freqDiff > -MARGIN && freqDiff < MARGIN) {
           matchingTargetIntervals++;
           if (matchingTargetIntervals >= 1) {
             //sendText("MLF");
@@ -275,8 +303,12 @@ void loop() {
   analogVal0 = analogRead(a0pin);
   //analogVal1 = analogRead(a1pin);
   //analogVal2 = analogRead(a2pin);
+
+  delayMicroseconds(100);
+
 #if 0
-  if ((prevTime != 0) && (curMillis - prevTime >= timeGap)) {
+  unsigned long realTimeGap = curMillis - prevTime;
+  if ((prevTime != 0) && (realTimeGap >= timeGap)) {
     //Serial.print(bleDeviceAddress);
     //Serial.print(UniqueIDsize);
     //Serial.print(" ");
@@ -284,7 +316,8 @@ void loop() {
     //Serial.print(" ");
     prevTime = curMillis;
     //sendText("0-");
-    sendInt(analogVal0);
+    //sendInt(drhigh);
+    //sendInt(analogVal0);
     //Serial.print(" ");
     //Serial.print("1-");
     //Serial.print(analogVal1);
@@ -292,7 +325,8 @@ void loop() {
     //Serial.print("2-");
     //Serial.print(analogVal2);
     //Serial.print(" ");
-    //sendInt(latestLameFreq);
+    sendInt(latestLameFreq);
+    sendInt(freqDiff);
     //sendInt(phigh);
     //sendInt(plow);
     //Serial.print(" ");
@@ -311,7 +345,8 @@ void loop() {
       touchmillistart = curMillis;
       touchmode = 1;
     } else if (touchmode == 1) {
-      if (curMillis - touchmillistart >= 15) {
+      unsigned long diff = curMillis - touchmillistart;
+      if (diff >= 15UL) {
         sendTouched();
         sendInt(otherSwordFreq);
         touchmode = 2;
