@@ -1,0 +1,73 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 170c0437-3328-403f-9a4e-c8e08f8c010b)
+
+  (paper "A4")
+
+  (lib_symbols
+  )
+
+
+  (wire (pts (xy 411.48 80.01) (xy 411.48 104.14))
+    (stroke (width 0) (type default))
+    (uuid 28677190-a710-4ad3-80e3-dce9436cfcb8)
+  )
+  (wire (pts (xy 401.32 80.01) (xy 401.32 104.14))
+    (stroke (width 0) (type default))
+    (uuid dedbf3fb-fbf7-424a-896f-ddc7baf71129)
+  )
+
+  (sheet (at 304.8 16.51) (size 158.75 63.5) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid a3688f85-f269-48aa-aeab-eb0a0343c1b7)
+    (property "Sheetname" "left-side" (at 304.8 15.7984 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "left-side.kicad_sch" (at 304.8 80.5946 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (pin "Left-Cline" input (at 401.32 80.01 270)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid acfe4198-56e2-416d-af4b-71f11b681f00)
+    )
+    (pin "Left-Tip" input (at 411.48 80.01 270)
+      (effects (font (size 1.27 1.27)) (justify left))
+      (uuid fa410bda-6c6c-4f66-a258-9074a9b93663)
+    )
+    (instances
+      (project "fencing1"
+        (path "/170c0437-3328-403f-9a4e-c8e08f8c010b" (page "4"))
+      )
+    )
+  )
+
+  (sheet (at 307.34 104.14) (size 156.21 104.14) (fields_autoplaced)
+    (stroke (width 0.1524) (type solid))
+    (fill (color 0 0 0 0.0000))
+    (uuid ce5b3901-54ec-436c-9ef5-daa2ccb82b53)
+    (property "Sheetname" "right-side" (at 307.34 103.4284 0)
+      (effects (font (size 1.27 1.27)) (justify left bottom))
+    )
+    (property "Sheetfile" "right-side.kicad_sch" (at 307.34 208.8646 0)
+      (effects (font (size 1.27 1.27)) (justify left top))
+    )
+    (pin "Right-Tip" input (at 401.32 104.14 90)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid 1a34fb89-66ad-4dff-9617-f25aaaf77b4f)
+    )
+    (pin "Right-Cline" input (at 411.48 104.14 90)
+      (effects (font (size 1.27 1.27)) (justify right))
+      (uuid a89610ca-e9c4-41ed-af56-2f9341c9c99a)
+    )
+    (instances
+      (project "fencing1"
+        (path "/170c0437-3328-403f-9a4e-c8e08f8c010b" (page "3"))
+      )
+    )
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)
