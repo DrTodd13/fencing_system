@@ -20,7 +20,7 @@ public class BluetoothTTFencing extends Thread {
     public boolean running;
     private final BluetoothAdapter bluetoothAdapter;
 
-
+    /*
     @SuppressLint("MissingPermission")
     public void connectPermissionGranted() {
         try {
@@ -33,13 +33,15 @@ public class BluetoothTTFencing extends Thread {
         discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
         startActivityForResult(main, discoverableIntent, MainActivity.DISCOVERY_REQUEST, null);
     }
+     */
+
     public BluetoothTTFencing(MainActivity main) {
         this.main = main;
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mmServerSocket = null;
         running = true;
 
-        connectPermissionGranted();
+        //connectPermissionGranted();
         /*
         if (ActivityCompat.checkSelfPermission(main, android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(main, new String[]{android.Manifest.permission.BLUETOOTH_CONNECT}, MainActivity.REQUEST_CONNECT_PERMISSION);
@@ -50,6 +52,7 @@ public class BluetoothTTFencing extends Thread {
     }
 
     public void run() {
+        /*
         BluetoothSocket socket = null;
         while (running) {
             if (mmServerSocket == null) {
@@ -66,13 +69,16 @@ public class BluetoothTTFencing extends Thread {
                 main.startBluetoothConnection(socket);
             }
         }
+         */
     }
 
     public void cancel() {
+        /*
         try {
             mmServerSocket.close();
         } catch (IOException e) {
             main.setError(2);
         }
+         */
     }
 }

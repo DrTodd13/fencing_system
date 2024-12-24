@@ -145,7 +145,6 @@ public class BlunoLibrary {
 					changeState(ConnectionStateEnum.isToScan);
 				}
 			}
-
 		}
 
 		@Override
@@ -367,15 +366,15 @@ public class BlunoLibrary {
 		}
 	}
 
-	public void connect(String address) {
-		connect(address, DEFAULT_BAUD_RATE, DEFAULT_PASSWORD);
+	public boolean connect(String address) {
+		return connect(address, DEFAULT_BAUD_RATE, DEFAULT_PASSWORD);
 	}
 
-	public void connect(String address, int baudrate) {
-		connect(address, baudrate, DEFAULT_PASSWORD);
+	public boolean connect(String address, int baudrate) {
+		return connect(address, baudrate, DEFAULT_PASSWORD);
 	}
 
-	public void connect(String address, int baudrate, String password) {
+	public boolean connect(String address, int baudrate, String password) {
 		stopScan();
 
 		setBaudRate(baudrate);
@@ -389,10 +388,11 @@ public class BlunoLibrary {
 					Log.e(TAG, "C");
 					changeState(ConnectionStateEnum.isConnecting);
 					mHandler.postDelayed(mConnectingOverTimeRunnable, 10000);
+					return true;
 				} else {
 					Log.e(TAG, "Connect request fail");
 					changeState(ConnectionStateEnum.isToScan);
-
+					return false;
 				}
 			}
 		} else {
@@ -402,13 +402,15 @@ public class BlunoLibrary {
 					Log.e(TAG, "C");
 					changeState(ConnectionStateEnum.isConnecting);
 					mHandler.postDelayed(mConnectingOverTimeRunnable, 10000);
+					return true;
 				} else {
 					Log.e(TAG, "Connect request fail");
 					changeState(ConnectionStateEnum.isToScan);
-
+					return false;
 				}
 			}
 		}
+		return false;
 	}
 
 	public void disconnect() {

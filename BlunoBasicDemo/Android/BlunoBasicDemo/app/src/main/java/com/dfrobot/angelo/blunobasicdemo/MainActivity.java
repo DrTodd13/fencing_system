@@ -10,7 +10,13 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import android.os.Bundle;
+import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,14 +49,16 @@ public class MainActivity extends Activity {
 				buttonClearLeft,
 				receivedTextLeft,
 				" left",
-				0);
+				0,
+				"F4:B8:5E:42:4C:EE");
 
 		fencingBlunoRight = new FencingBluno(this,
 				buttonScanRight,
 				buttonClearRight,
 				receivedTextRight,
 				" right",
-				1);
+				1,
+				"F4:B8:5E:42:6D:43");
 
 		fencingBlunoLeft.setOther(fencingBlunoRight);
 		fencingBlunoRight.setOther(fencingBlunoLeft);
@@ -79,8 +87,8 @@ public class MainActivity extends Activity {
 			}
 		});
 
-		fencingBlunoLeft.getBlunoLibrary().initialize();
-		fencingBlunoRight.getBlunoLibrary().initialize();
+		fencingBlunoLeft.initialize();
+		fencingBlunoRight.initialize();
 
 		buttonClearLeft.setOnClickListener(new OnClickListener() {
 

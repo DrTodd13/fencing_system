@@ -1,6 +1,7 @@
 package com.example.ttfencing;
 
 import android.bluetooth.BluetoothSocket;
+import android.util.Log;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -15,6 +16,7 @@ public class LaptopThread extends Thread {
     private boolean running;
     private DataInputStream dis;
     private DataOutputStream dos;
+    public int errorResult;
 
     public LaptopThread(MainActivity main, BluetoothSocket socket) {
         this.main = main;
@@ -26,7 +28,7 @@ public class LaptopThread extends Thread {
             sinput = socket.getInputStream();
         } catch (IOException e) {
             running = false;
-            main.setError(4);
+            setLaptopError(4);
             return;
         }
         dis = new DataInputStream(sinput);
@@ -36,10 +38,14 @@ public class LaptopThread extends Thread {
             soutput = socket.getOutputStream();
         } catch (IOException e) {
             running = false;
-            main.setError(4);
+            setLaptopError(4);
             return;
         }
         dos = new DataOutputStream(soutput);
+    }
+
+    public void setLaptopError(int error) {
+        errorResult = error;
     }
 
     public void sendLeftScore(int x) throws IOException {
@@ -65,6 +71,28 @@ public class LaptopThread extends Thread {
         dos.writeInt(x);
     }
 
+    public void sendInfo(int ls, int rs, float t, int lt, int rt) throws IOException {
+        dos.writeInt(5);
+        dos.writeInt(ls);
+        dos.writeInt(rs);
+        dos.writeFloat(t);
+        dos.writeInt(lt);
+        dos.writeInt(rt);
+        dos.flush();
+    }
+
+    public void sendStartMessage() throws IOException {
+        dos.writeInt(6);
+    }
+
+    public void sendStopMessage() throws IOException {
+        dos.writeInt(7);
+    }
+
+    public void sendRWModelRequest() throws IOException {
+        dos.writeInt(8);
+    }
+
     public void run() {
         while (running) {
             int msgType;
@@ -72,7 +100,8 @@ public class LaptopThread extends Thread {
                 msgType = dis.readInt();
             } catch (IOException e) {
                 running = false;
-                main.setError(5);
+                Log.e("Bluetooth", "IOException reading from input stream: " + e.getMessage());
+                setLaptopError(5);
                 return;
             }
 
@@ -84,12 +113,12 @@ public class LaptopThread extends Thread {
                 case 0:
                     if (!handleRightOfWayMessage(dis)) {
                         running = false;
-                        main.setError(8);
+                        setLaptopError(8);
                     }
                     break;
                 default:
                     running = false;
-                    main.setError(7);
+                    setLaptopError(7);
             }
         }
     }
@@ -101,7 +130,7 @@ public class LaptopThread extends Thread {
             main.setRightOfWayHolder(rightOfWayHolder);
         } catch (IOException e) {
             running = false;
-            main.setError(5);
+            setLaptopError(5);
             return false;
         }
 
@@ -112,7 +141,7 @@ public class LaptopThread extends Thread {
         try {
             socket.close();
         } catch (IOException e) {
-            main.setError(6);
+            setLaptopError(6);
         }
     }
 }

@@ -12,8 +12,8 @@ c2 = 3.3e-10
 
 #f = 3660 # a desired frequency
 #f = 4800 # a desired frequency
-f0 = 3700 # a desired frequency
-f1 = 4900 # a desired frequency
+f0 = 3900 # a desired frequency
+f1 = 5200 # a desired frequency
 
 def calc(f):
     r6 = (1/2/math.pi/f)**2 * r1/r3/c1/c2/r5

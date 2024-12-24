@@ -35,6 +35,7 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
     public String mDeviceName;
     public String mDeviceAddress;
 
+    public String mPreferredMacAddr;
     private LeDeviceListAdapter mLeDeviceListAdapter=null;
     AlertDialog mScanDeviceDialog;
     FencingBluno mOther;
@@ -49,7 +50,8 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
                         //EditText editField,
                         TextView displayText,
                         String postfix,
-                        int slot) {
+                        int slot,
+                        String preferred_mac_addr) {
         blunoLibrary = new BlunoLibrary(main, this, slot);
         mainActivity=main;
         this.scan = scan;
@@ -59,11 +61,15 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
         this.postfix = postfix;
         this.slot = slot;
         mReceived = "";
+        mPreferredMacAddr = preferred_mac_addr;
         blunoLibrary.setBlunoListener(this);
 
         createScanDeviceDialog();
     }
 
+    public void initialize() {
+        blunoLibrary.initialize();
+    }
     public void setOther(FencingBluno other) {
         mOther = other;
     }
@@ -180,6 +186,11 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
                 break;
             case isToScan:
                 scan.setText("Scan" + postfix);
+                if (!mPreferredMacAddr.equals("")) {
+                    String temp = mPreferredMacAddr;
+                    mPreferredMacAddr = "";
+                    blunoLibrary.connect(temp);
+                }
                 break;
             case isScanning:
                 scan.setText("Scanning");
