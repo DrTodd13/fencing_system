@@ -17,6 +17,7 @@ int latestLameFreq = 0;
 int freqDiff = 0;
 int matchingTargetIntervals = 0;
 int printcount = -1;
+bool for_ttfencing = true;
 
 String bleDeviceAddress = "ns";
 char *uniqueid;
@@ -119,14 +120,18 @@ void sendTouched() {
 
 void sendText(char *s) {
   char slen[100];
-  sprintf(slen, "3%4d%s", strlen(s), s);
-  Serial.print(slen);
+  if (!for_ttenfencing) {
+    sprintf(slen, "3%4d%s", strlen(s), s);
+    Serial.print(slen);
+  }
 }
 
 void sendInt(int s) {
   char buf[20];
-  sprintf(buf, "%d", s);
-  sendText(buf);
+  if (!for_ttenfencing) {
+    sprintf(buf, "%d", s);
+    sendText(buf);
+  }
 }
 
 void loop() {

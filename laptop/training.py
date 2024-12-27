@@ -251,6 +251,11 @@ else:
     model = create_model()
     model.fit(X_train, y_train, epochs=200, batch_size=16, callbacks=[early_stopping])
     best_model = model
+    
+# To load, do:
+# from keras.models import load_model
+# new_model = load_model(filepath)
+best_model.save("ttfencing_model")
 
 # Evaluate the best model on the test set
 loss, accuracy = best_model.evaluate(X_test, y_test)

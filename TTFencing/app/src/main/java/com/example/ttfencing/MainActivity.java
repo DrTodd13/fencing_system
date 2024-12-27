@@ -2,6 +2,7 @@ package com.example.ttfencing;
 
 import static android.view.View.VISIBLE;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 //import androidx.core.app.ActivityCompat;
@@ -11,6 +12,8 @@ import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothSocket;
 //import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -27,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.util.Timer;
@@ -56,6 +60,13 @@ public class MainActivity extends AppCompatActivity {
     LaptopThread laptopThread;
     BluetoothTTFencing bluetoothThread;
     BluetoothSocket laptopSocket;
+
+    FencingBluno fencingBlunoLeft;
+    FencingBluno fencingBlunoRight;
+
+    private long touchTimeMillis = 0;
+
+    private final List<String> connectedAddressList = new ArrayList<>();
 
     public void setRightOfWayHolder(int x) {
         rightOfWayHolder = x;
@@ -119,7 +130,150 @@ public class MainActivity extends AppCompatActivity {
 
         //bluetoothThread = new BluetoothTTFencing(this);
         //bluetoothThread.start();
+
+        fencingBlunoLeft = new FencingBluno(this,
+                " left",
+                0,
+                "F4:B8:5E:42:4C:EE");
+
+        fencingBlunoRight = new FencingBluno(this,
+                " right",
+                1,
+                "F4:B8:5E:42:6D:43");
+
+        fencingBlunoLeft.setOther(fencingBlunoRight);
+        fencingBlunoRight.setOther(fencingBlunoLeft);
+
+        fencingBlunoLeft.getBlunoLibrary().request(1000, new BlunoLibrary.OnPermissionsResult() {
+            @Override
+            public void OnSuccess() {
+                // intentionally do nothing
+            }
+
+            @Override
+            public void OnFail(List<String> noPermissions) {
+                Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        fencingBlunoRight.getBlunoLibrary().request(1001, new BlunoLibrary.OnPermissionsResult() {
+            @Override
+            public void OnSuccess() {
+                // intentionally do nothing
+            }
+
+            @Override
+            public void OnFail(List<String> noPermissions) {
+                Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        fencingBlunoLeft.initialize();
+        fencingBlunoRight.initialize();
     }
+
+    public boolean markTouch() {
+        if (touchTimeMillis == 0) {
+            touchTimeMillis = System.currentTimeMillis();
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                int leftTouch;
+                if (fencingBlunoLeft.touchedOther()) {
+                    if (fencingBlunoRight.wasTouched()) {
+                        leftTouch = 1;
+                    } else {
+                        leftTouch = 2;
+                    }
+                } else {
+                    leftTouch = 0;
+                }
+                int rightTouch;
+                if (fencingBlunoRight.touchedOther()) {
+                    if (fencingBlunoLeft.wasTouched()) {
+                        rightTouch = 1;
+                    } else {
+                        rightTouch = 2;
+                    }
+                } else {
+                    rightTouch = 0;
+                }
+
+                sendInfo(leftTouch, rightTouch);
+
+                // Consult referee
+                if ((leftTouch == 1 && rightTouch != 0) || (rightTouch == 1 && leftTouch != 0)) {
+                    try {
+                        laptopThread.sendRWModelRequest();
+                    } catch (IOException e) {
+                        Log.e("Bluetooth", "laptopThread sendRWModelRequest exception: " + e.getMessage());
+                    }
+                }
+                },
+                    300);
+
+            return true;
+        } else {
+            return System.currentTimeMillis() - touchTimeMillis <= 300;
+        }
+    }
+
+
+    protected void onResume() {
+        super.onResume();
+        System.out.println("BlUNOActivity onResume");
+        fencingBlunoLeft.getBlunoLibrary().resume();
+        fencingBlunoRight.getBlunoLibrary().resume();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        assert false;
+        //fencingBlunoLeft.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);                    //onActivityResult Process by BlunoLibrary
+        //fencingBlunoRight.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        fencingBlunoLeft.getBlunoLibrary().pause();
+        fencingBlunoRight.getBlunoLibrary().pause();
+    }
+
+    protected void onStop() {
+        super.onStop();
+        assert false;
+        //fencingBlunoLeft.getBlunoLibrary().stop();                                                        //onStop Process by BlunoLibrary
+        //fencingBlunoRight.getBlunoLibrary().onStopProcess();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        fencingBlunoLeft.getBlunoLibrary().destroy();
+        fencingBlunoRight.getBlunoLibrary().destroy();
+    }
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        fencingBlunoLeft.getBlunoLibrary().onRequestPermissionsResult(requestCode, permissions, grantResults);
+        fencingBlunoRight.getBlunoLibrary().onRequestPermissionsResult(requestCode, permissions, grantResults);
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    public void addConnectedAddress(String address) {
+        connectedAddressList.add(address);
+    }
+
+    public void removeConnectedAddress(String address) {
+        connectedAddressList.remove(address);
+    }
+
+    public boolean isAddressConnected(String address) {
+        return connectedAddressList.contains(address);
+    }
+
 
     public void startBluetoothConnection(BluetoothSocket socket) {
      //Start the thread to manage the connection and perform transmissions
@@ -168,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.i("Bluetooth", "Successfully connected to laptop");
 
                     startBluetoothConnection(laptopSocket);
-                    sendInfo();
+                    sendInfoNoTouch();
                 } catch (IOException e) {
                     Log.e("Bluetooth", "Connection failed: " + e.getMessage());
                 }
@@ -247,13 +401,16 @@ public class MainActivity extends AppCompatActivity {
                 secondsLeft = timeRound;
                 timerButton.setText("Allez!");
                 screenTimerText.setText(getTimerText());
-                sendInfo();
+                sendInfoNoTouch();
             } else {
                 timerButton.setText("Halt!");
                 startTime();
                 timerRunning = !timerRunning;
                 if (laptopThread != null) {
                     try {
+                        touchTimeMillis = 0;
+                        fencingBlunoLeft.resetTouchFlags();
+                        fencingBlunoRight.resetTouchFlags();
                         laptopThread.sendTime(secondsLeft);
                         laptopThread.sendStartMessage();
                         Log.i("Bluetooth", "Sent start message.");
@@ -279,39 +436,43 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public void sendInfo() {
+    public void sendInfo(int leftTouch, int rightTouch) {
         if (laptopThread == null) {
             return;
         }
         try {
-            laptopThread.sendInfo(leftScore, rightScore, secondsLeft, 0, 0); // TODO
+            laptopThread.sendInfo(leftScore, rightScore, secondsLeft, leftTouch, rightTouch);
         } catch (IOException e) {
             Log.e("Bluetooth", "laptopThread sendInfo exception: " + e.getMessage());
         }
     }
 
+    public void sendInfoNoTouch() {
+        sendInfo(0, 0);
+    }
+
     public void leftUpClick(View v) {
         leftScore += 1;
         leftScoreText.setText(String.valueOf(leftScore));
-        sendInfo();
+        sendInfoNoTouch();
     }
     public void leftDownClick(View v) {
         if (leftScore > 0) {
             leftScore -= 1;
             leftScoreText.setText(String.valueOf(leftScore));
-            sendInfo();
+            sendInfoNoTouch();
         }
     }
     public void rightUpClick(View v) {
         rightScore += 1;
         rightScoreText.setText(String.valueOf(rightScore));
-        sendInfo();
+        sendInfoNoTouch();
     }
     public void rightDownClick(View v) {
         if (rightScore > 0) {
             rightScore -= 1;
             rightScoreText.setText(String.valueOf(rightScore));
-            sendInfo();
+            sendInfoNoTouch();
         }
     }
 
@@ -320,7 +481,7 @@ public class MainActivity extends AppCompatActivity {
             timerClick(v);
         }
         reset();
-        sendInfo();
+        sendInfoNoTouch();
     }
 
     public void onLaptopClick(View v) { laptopClick(); }

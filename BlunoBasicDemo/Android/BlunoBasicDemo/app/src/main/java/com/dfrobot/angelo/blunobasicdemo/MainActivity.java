@@ -3,6 +3,7 @@ package com.dfrobot.angelo.blunobasicdemo;
 import android.app.Activity;
 import android.os.Bundle;
 import android.content.Intent;
+import android.os.Debug;
 import android.support.annotation.NonNull;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
+        Debug.waitForDebugger();
 		buttonScanLeft = (Button) findViewById(R.id.buttonScanLeft);
 		receivedTextLeft = (TextView) findViewById(R.id.receivedTextLeft);
 		buttonClearLeft = (Button) findViewById(R.id.buttonClearLeft);
