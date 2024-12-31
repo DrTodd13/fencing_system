@@ -71,13 +71,11 @@ public class LaptopThread extends Thread {
         dos.writeInt(x);
     }
 
-    public void sendInfo(int ls, int rs, float t, int lt, int rt) throws IOException {
+    public void sendInfo(int ls, int rs, float t) throws IOException {
         dos.writeInt(5);
         dos.writeInt(ls);
         dos.writeInt(rs);
         dos.writeFloat(t);
-        dos.writeInt(lt);
-        dos.writeInt(rt);
         dos.flush();
     }
 
@@ -89,8 +87,11 @@ public class LaptopThread extends Thread {
         dos.writeInt(7);
     }
 
-    public void sendRWModelRequest() throws IOException {
+    public void sendTouches(int lt, int rt, boolean doReview) throws IOException {
         dos.writeInt(8);
+        dos.writeInt(lt);
+        dos.writeInt(rt);
+        dos.writeInt(doReview ? 1 : 0);
     }
 
     public void run() {
@@ -102,6 +103,7 @@ public class LaptopThread extends Thread {
                 running = false;
                 Log.e("Bluetooth", "IOException reading from input stream: " + e.getMessage());
                 setLaptopError(5);
+                main.setLaptopDisconnected();
                 return;
             }
 
@@ -130,7 +132,9 @@ public class LaptopThread extends Thread {
             main.setRightOfWayHolder(rightOfWayHolder);
         } catch (IOException e) {
             running = false;
+            Log.e("Bluetooth", "IOException reading from input stream: " + e.getMessage());
             setLaptopError(5);
+            main.setLaptopDisconnected();
             return false;
         }
 

@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
-        Debug.waitForDebugger();
+        //Debug.waitForDebugger();
 		buttonScanLeft = (Button) findViewById(R.id.buttonScanLeft);
 		receivedTextLeft = (TextView) findViewById(R.id.receivedTextLeft);
 		buttonClearLeft = (Button) findViewById(R.id.buttonClearLeft);

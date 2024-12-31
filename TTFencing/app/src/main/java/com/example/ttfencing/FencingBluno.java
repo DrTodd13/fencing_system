@@ -25,7 +25,7 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
     int slot;
 
     public String mDeviceName;
-    public String mDeviceAddress;
+    //public String mDeviceAddress;
 
     public String mPreferredMacAddr;
     FencingBluno mOther;
@@ -66,6 +66,13 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
     public void initialize() {
         blunoLibrary.initialize();
     }
+
+    public void connect() {
+        if (!mPreferredMacAddr.equals("")) {
+            blunoLibrary.connect(mPreferredMacAddr);
+        }
+    }
+
     public void setOther(FencingBluno other) {
         mOther = other;
     }
@@ -82,21 +89,16 @@ public class FencingBluno implements BlunoLibrary.BlunoListener {
     public void onConnectionStateChange(BlunoLibrary.ConnectionStateEnum state) {//Once connection state changes, this function will be called
         switch (state) {											//Four connection state
             case isConnected:
-                mainActivity.addConnectedAddress(mDeviceAddress);
+                mainActivity.addConnectedAddress(mPreferredMacAddr);
                 break;
             case isConnecting:
                 break;
             case isToScan:
-                if (!mPreferredMacAddr.equals("")) {
-                    String temp = mPreferredMacAddr;
-                    mPreferredMacAddr = "";
-                    blunoLibrary.connect(temp);
-                }
                 break;
             case isScanning:
                 break;
             case isDisconnecting:
-                mainActivity.removeConnectedAddress(mDeviceAddress);
+                mainActivity.removeConnectedAddress(mPreferredMacAddr);
                 break;
             default:
                 break;

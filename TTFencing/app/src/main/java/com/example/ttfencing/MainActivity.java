@@ -2,6 +2,7 @@ package com.example.ttfencing;
 
 import static android.view.View.VISIBLE;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -40,8 +41,9 @@ import java.util.UUID;
 //public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 public class MainActivity extends AppCompatActivity {
 
-    Button timerButton, leftUpButton, leftDownButton, rightUpButton, rightDownButton, laptopButton;
+    Button timerButton, leftUpButton, leftDownButton, rightUpButton, rightDownButton, connectButton;
     TextView leftScoreText, rightScoreText, screenTimerText;
+    View leftFlash, rightFlash;
     int leftScore, rightScore;
     float secondsLeft;
     boolean timerRunning;
@@ -64,18 +66,54 @@ public class MainActivity extends AppCompatActivity {
     FencingBluno fencingBlunoLeft;
     FencingBluno fencingBlunoRight;
 
+    private boolean lbHadTouchedOther = false;
+    private boolean rbHadTouchedOther = false;
+    private boolean waitingForReview = false;
+
+    private boolean laptopConnected = false;
+    private boolean leftBlunoConnected = false;
+    private boolean rightBlunoConnected = false;
+
     private long touchTimeMillis = 0;
 
     private final List<String> connectedAddressList = new ArrayList<>();
 
     public void setRightOfWayHolder(int x) {
+        if (!waitingForReview) {
+            Log.e("Bluetooth", "Received right-of-way response while not waiting for review");
+            return;
+        }
+
         rightOfWayHolder = x;
+        if (rightOfWayHolder == 0) {
+            if (lbHadTouchedOther) {
+                incrementLeftScore();
+            }
+        } else if (rightOfWayHolder == 1) {
+            if (rbHadTouchedOther) {
+                incrementRightScore();
+            }
+        } else {
+            Log.e("Bluetooth", "Received invalid right-of-way holder");
+            return;
+        }
+
+        waitingForReview = false;
+        timerButton.setText("Allez!");
+
+        leftFlash.setBackgroundColor(Color.BLACK);
+        rightFlash.setBackgroundColor(Color.BLACK);
+
+        sendInfo();
     }
 
     @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        //Debug.waitForDebugger();
+
         setContentView(R.layout.activity_main);
         timerButton = (Button) findViewById(R.id.timer);
         timerButton.setText("Allez!");
@@ -85,14 +123,16 @@ public class MainActivity extends AppCompatActivity {
         rightDownButton = (Button) findViewById(R.id.rightDown);
         leftScoreText = (TextView) findViewById(R.id.leftScore);
         rightScoreText = (TextView) findViewById(R.id.rightScore);
+        leftFlash = (View) findViewById(R.id.leftFlash);
+        rightFlash = (View) findViewById(R.id.rightFlash);
         screenTimerText = (TextView) findViewById(R.id.screenTimer);
-        laptopButton = (Button) findViewById(R.id.laptopButton);
+        connectButton = (Button) findViewById(R.id.connectButton);
         foundDevices = new ArrayList<BluetoothDevice>();
         bluetoothAdapter = null;
         timerTask = null;
         timer = new Timer();
-        //timeRound = 3 * 60;
-        timeRound = 20;
+        timeRound = 3 * 60;
+        //timeRound = 20;
         laptopThread = null;
         errCode = 0;
         appUUID = UUID.fromString("cacd2b25-d9e4-4169-b9e7-90de83e2e127");
@@ -167,18 +207,29 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Failed to get permissions for BlunoLibrary", Toast.LENGTH_SHORT).show();
             }
         });
+    }
 
-        fencingBlunoLeft.initialize();
-        fencingBlunoRight.initialize();
+    public void flashColorOnTouch(View flashView, @ColorInt int color, boolean needReferee, boolean wasTimerRunning) {
+        flashView.setBackgroundColor(color);
+        if (!needReferee || !wasTimerRunning) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> flashView.setBackgroundColor(Color.BLACK), 3000);
+        }
     }
 
     public boolean markTouch() {
+        if (waitingForReview) return false;
+
         if (touchTimeMillis == 0) {
             touchTimeMillis = System.currentTimeMillis();
+
+            boolean timerRunningWhenFirstTouch = timerRunning;
+            lbHadTouchedOther = false;
+            rbHadTouchedOther = false;
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 int leftTouch;
                 if (fencingBlunoLeft.touchedOther()) {
+                    lbHadTouchedOther = true;
                     if (fencingBlunoRight.wasTouched()) {
                         leftTouch = 1;
                     } else {
@@ -189,6 +240,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 int rightTouch;
                 if (fencingBlunoRight.touchedOther()) {
+                    rbHadTouchedOther = true;
                     if (fencingBlunoLeft.wasTouched()) {
                         rightTouch = 1;
                     } else {
@@ -198,18 +250,54 @@ public class MainActivity extends AppCompatActivity {
                     rightTouch = 0;
                 }
 
-                sendInfo(leftTouch, rightTouch);
-
-                // Consult referee
-                if ((leftTouch == 1 && rightTouch != 0) || (rightTouch == 1 && leftTouch != 0)) {
-                    try {
-                        laptopThread.sendRWModelRequest();
-                    } catch (IOException e) {
-                        Log.e("Bluetooth", "laptopThread sendRWModelRequest exception: " + e.getMessage());
-                    }
+                if (timerRunningWhenFirstTouch) {
+                    timerClick(); // Stop timer
+                    catchLaptopSocketException(() -> laptopThread.sendStopMessage());
                 }
-                },
-                    300);
+                waitingForReview = timerRunningWhenFirstTouch && ((leftTouch == 1 && rightTouch != 0) || (rightTouch == 1 && leftTouch != 0));
+                if (waitingForReview) {
+                    timerButton.setText("Waiting...");
+                }
+                sendTouches(leftTouch, rightTouch, waitingForReview);
+
+                if (leftTouch == 1) {
+                    flashColorOnTouch(leftFlash, Color.parseColor("#D51B1B"), waitingForReview, timerRunningWhenFirstTouch);
+                    if (rightTouch == 0) {
+                        if (timerRunningWhenFirstTouch) {
+                            incrementLeftScore();
+                            sendInfo();
+                        }
+                    }
+                } else if (leftTouch == 2) {
+                    flashColorOnTouch(leftFlash, Color.WHITE, waitingForReview, timerRunningWhenFirstTouch);
+                }
+
+                if (rightTouch == 1) {
+                    flashColorOnTouch(rightFlash, Color.parseColor("#0AC649"), waitingForReview, timerRunningWhenFirstTouch);
+                    if (leftTouch == 0) {
+                        if (timerRunningWhenFirstTouch) {
+                            incrementRightScore();
+                            sendInfo();
+                        }
+                    }
+                } else if (rightTouch == 2) {
+                    flashColorOnTouch(rightFlash, Color.WHITE, waitingForReview, timerRunningWhenFirstTouch);
+                }
+                if (!timerRunningWhenFirstTouch) {
+                    touchTimeMillis = 0;
+                    fencingBlunoRight.resetTouchFlags();
+                    fencingBlunoLeft.resetTouchFlags();
+                }},
+                300);
+            if (timerRunningWhenFirstTouch) {
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (!timerRunning) {
+                        touchTimeMillis = 0;
+                        fencingBlunoRight.resetTouchFlags();
+                        fencingBlunoLeft.resetTouchFlags();
+                    }},
+                    3000);
+            }
 
             return true;
         } else {
@@ -231,6 +319,13 @@ public class MainActivity extends AppCompatActivity {
         //fencingBlunoLeft.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);                    //onActivityResult Process by BlunoLibrary
         //fencingBlunoRight.getBlunoLibrary().onActivityResultProcess(requestCode, resultCode, data);
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        fencingBlunoLeft.initialize();
+        fencingBlunoRight.initialize();
     }
 
     @Override
@@ -264,10 +359,22 @@ public class MainActivity extends AppCompatActivity {
 
     public void addConnectedAddress(String address) {
         connectedAddressList.add(address);
+        if (address.equals(fencingBlunoLeft.mPreferredMacAddr)) {
+            leftBlunoConnected = true;
+        } else if (address.equals(fencingBlunoRight.mPreferredMacAddr)) {
+            rightBlunoConnected = true;
+        }
+        updateConnectButtonText();
     }
 
     public void removeConnectedAddress(String address) {
         connectedAddressList.remove(address);
+        if (address.equals(fencingBlunoLeft.mPreferredMacAddr)) {
+            leftBlunoConnected = false;
+        } else if (address.equals(fencingBlunoRight.mPreferredMacAddr)) {
+            rightBlunoConnected = false;
+        }
+        updateConnectButtonText();
     }
 
     public boolean isAddressConnected(String address) {
@@ -292,56 +399,83 @@ public class MainActivity extends AppCompatActivity {
         screenTimerText.setText(getTimerText());
     }
 
-    public void laptopClick() {
-        laptopButton.setBackgroundColor(Color.BLUE);
-        bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null) {
-            Log.e("Bluetooth", "Bluetooth is not available");
-            return;
+    private void updateConnectButtonText() {
+        String connectButtonText = "Connected: ";
+        if (laptopConnected) {
+            connectButtonText += "1";
         }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            Log.e("Bluetooth", "Missing ACCESS_FINE_LOCATION permission");
-            return;
+        if (leftBlunoConnected) {
+            connectButtonText += "2";
+        }
+        if (rightBlunoConnected) {
+            connectButtonText += "3";
+        }
+        connectButton.setText(connectButtonText);
+    }
+
+    public void connectClick() {
+        connectButton.setBackgroundColor(Color.BLUE);
+        updateConnectButtonText();
+
+        if (!leftBlunoConnected) {
+            fencingBlunoLeft.connect();
+        }
+        if (!rightBlunoConnected) {
+            fencingBlunoRight.connect();
         }
 
-        if (true) {
-            BluetoothDevice device = bluetoothAdapter.getRemoteDevice("E4:02:9B:93:0F:CF");
-            if (device != null) {
-                Log.i("Bluetooth", "Connected to laptop at known MAC address.");
-                try {
-                    //laptopSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
-                    laptopSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("c3c870f0-699a-4264-866c-6bf8be151bcc"));
-                    laptopSocket.connect();
-                    Log.i("Bluetooth", "Successfully connected to laptop");
+        if (!laptopConnected) {
+            bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+            if (bluetoothAdapter == null) {
+                Log.e("Bluetooth", "Bluetooth is not available");
+                return;
+            }
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                Log.e("Bluetooth", "Missing ACCESS_FINE_LOCATION permission");
+                return;
+            }
 
-                    startBluetoothConnection(laptopSocket);
-                    sendInfoNoTouch();
-                } catch (IOException e) {
-                    Log.e("Bluetooth", "Connection failed: " + e.getMessage());
+            if (true) {
+                BluetoothDevice device = bluetoothAdapter.getRemoteDevice("E4:02:9B:93:0F:CF");
+                if (device != null) {
+                    Log.i("Bluetooth", "Connected to laptop at known MAC address.");
+                    try {
+                        //laptopSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("00001101-0000-1000-8000-00805F9B34FB"));
+                        laptopSocket = device.createRfcommSocketToServiceRecord(UUID.fromString("c3c870f0-699a-4264-866c-6bf8be151bcc"));
+                        laptopSocket.connect();
+                        Log.i("Bluetooth", "Successfully connected to laptop");
+                        laptopConnected = true;
+                        updateConnectButtonText();
+
+                        startBluetoothConnection(laptopSocket);
+                        sendInfo();
+                    } catch (IOException e) {
+                        Log.e("Bluetooth", "Connection failed: " + e.getMessage());
+                    }
+                } else {
+                    Log.e("Bluetooth", "Could not connect to laptop at known MAC address.");
                 }
             } else {
-                Log.e("Bluetooth", "Could not connect to laptop at known MAC address.");
-            }
-        } else {
-            // Register for broadcasts when a device is discovered
-            IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
-            registerReceiver(laptopreceiver, filter);
-            // Start discovery
-            if (bluetoothAdapter.isDiscovering()) {
-                bluetoothAdapter.cancelDiscovery();
-            }
+                // Register for broadcasts when a device is discovered
+                IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
+                registerReceiver(laptopreceiver, filter);
+                // Start discovery
+                if (bluetoothAdapter.isDiscovering()) {
+                    bluetoothAdapter.cancelDiscovery();
+                }
 
-            if (bluetoothAdapter.startDiscovery()) {
-                Log.d("Bluetooth", "Bluetooth discovery successful");
-            } else {
-                Log.e("Bluetooth", "Bluetooth discovery returned false");
+                if (bluetoothAdapter.startDiscovery()) {
+                    Log.d("Bluetooth", "Bluetooth discovery successful");
+                } else {
+                    Log.e("Bluetooth", "Bluetooth discovery returned false");
+                }
             }
         }
     }
@@ -369,7 +503,7 @@ public class MainActivity extends AppCompatActivity {
 
                     String deviceName = device.getName();
                     Log.d("Bluetooth", "Device found: " + deviceName + " - " + device.getAddress());
-                    laptopButton.setText("Laptop " + foundDevices.size());
+                    //connectButton.setText("Laptop " + foundDevices.size());
 
                     if (deviceName != null && deviceName.equals("DESKTOP-VCLA0R6")) {
                         try {
@@ -395,28 +529,26 @@ public class MainActivity extends AppCompatActivity {
         return String.valueOf(mins) + ":" + String.format("%02d", secs);
     }
 
-    public void timerClick(View v) {
+    public void timerClick() {
+        if (waitingForReview) return;
+
         if (!timerRunning) {
             if (secondsLeft <= 0) {
                 secondsLeft = timeRound;
                 timerButton.setText("Allez!");
                 screenTimerText.setText(getTimerText());
-                sendInfoNoTouch();
+                sendInfo();
             } else {
                 timerButton.setText("Halt!");
                 startTime();
                 timerRunning = !timerRunning;
+                touchTimeMillis = 0;
+                fencingBlunoLeft.resetTouchFlags();
+                fencingBlunoRight.resetTouchFlags();
                 if (laptopThread != null) {
-                    try {
-                        touchTimeMillis = 0;
-                        fencingBlunoLeft.resetTouchFlags();
-                        fencingBlunoRight.resetTouchFlags();
-                        laptopThread.sendTime(secondsLeft);
-                        laptopThread.sendStartMessage();
-                        Log.i("Bluetooth", "Sent start message.");
-                    } catch (IOException e) {
-                        Log.e("Bluetooth", "laptopThread startMessage exception: " + e.getMessage());
-                    }
+                    catchLaptopSocketException(() -> laptopThread.sendTime(secondsLeft));
+                    catchLaptopSocketException(() -> laptopThread.sendStartMessage());
+                    Log.i("Bluetooth", "Sent start message.");
                 }
             }
         } else {
@@ -426,65 +558,91 @@ public class MainActivity extends AppCompatActivity {
             timerButton.setText("Allez!");
             timerRunning = !timerRunning;
             if (laptopThread != null) {
-                try {
+                catchLaptopSocketException(() -> {
                     laptopThread.sendStopMessage();
                     Log.i("Bluetooth", "Sent stop message.");
-                } catch (IOException e) {
-                    Log.e("Bluetooth", "laptopThread stopMessage exception: " + e.getMessage());
-                }
+                });
             }
         }
     }
 
-    public void sendInfo(int leftTouch, int rightTouch) {
+    public void sendTouches(int leftTouch, int rightTouch, boolean doReview) {
         if (laptopThread == null) {
             return;
         }
+        catchLaptopSocketException(() -> laptopThread.sendTouches(leftTouch, rightTouch, doReview));
+    }
+
+    public void sendInfo() {
+        if (laptopThread == null) {
+            return;
+        }
+        catchLaptopSocketException(() -> laptopThread.sendInfo(leftScore, rightScore, secondsLeft));
+    }
+
+    private interface MessageForLaptop {
+        void sendMessage() throws IOException;
+    }
+
+    private void catchLaptopSocketException(MessageForLaptop sendMessageCall) {
         try {
-            laptopThread.sendInfo(leftScore, rightScore, secondsLeft, leftTouch, rightTouch);
+            sendMessageCall.sendMessage();
         } catch (IOException e) {
-            Log.e("Bluetooth", "laptopThread sendInfo exception: " + e.getMessage());
+            Log.e("Bluetooth", "laptopThread sendMessage exception: " + e.getMessage());
+            setLaptopDisconnected();
         }
     }
 
-    public void sendInfoNoTouch() {
-        sendInfo(0, 0);
+    public synchronized void setLaptopDisconnected() {
+        laptopConnected = false;
+    }
+
+    public void incrementLeftScore() {
+        leftScore++;
+        leftScoreText.setText(String.valueOf(leftScore));
     }
 
     public void leftUpClick(View v) {
-        leftScore += 1;
-        leftScoreText.setText(String.valueOf(leftScore));
-        sendInfoNoTouch();
+        incrementLeftScore();
+        sendInfo();
     }
+
     public void leftDownClick(View v) {
         if (leftScore > 0) {
             leftScore -= 1;
             leftScoreText.setText(String.valueOf(leftScore));
-            sendInfoNoTouch();
+            sendInfo();
         }
     }
-    public void rightUpClick(View v) {
-        rightScore += 1;
+
+    public void incrementRightScore() {
+        rightScore++;
         rightScoreText.setText(String.valueOf(rightScore));
-        sendInfoNoTouch();
+    }
+
+    public void rightUpClick(View v) {
+        incrementRightScore();
+        sendInfo();
     }
     public void rightDownClick(View v) {
         if (rightScore > 0) {
             rightScore -= 1;
             rightScoreText.setText(String.valueOf(rightScore));
-            sendInfoNoTouch();
+            sendInfo();
         }
     }
 
     public void resetClick(View v) {
         if (timerRunning) {
-            timerClick(v);
+            timerClick();
         }
         reset();
-        sendInfoNoTouch();
+        sendInfo();
     }
 
-    public void onLaptopClick(View v) { laptopClick(); }
+    public void onConnectClick(View v) { connectClick(); }
+
+    public void onTimerClick(View v) { timerClick(); }
 
     private void startTime() {
         timerTask = new TimerTask() {
@@ -509,12 +667,14 @@ public class MainActivity extends AppCompatActivity {
         timer.scheduleAtFixedRate(timerTask, 0, 100);
     }
 
+    /*
     public void setError(int code) {
         errCode = errCode + (1 << code);
         TextView errText = (TextView) findViewById(R.id.errcode);
         errText.setVisibility(VISIBLE);
         errText.setText(String.valueOf(errCode));
     }
+     */
 
     /*
     @Override

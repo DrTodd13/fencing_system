@@ -7,8 +7,6 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.regularizers import l2
 import os
 
-prefixes = ["C:\\Users\\drtod\\Documents\\fencing\\Shanghai_Red", "C:\\Users\\drtod\\Documents\\fencing\\Shanghai_Yellow"]
-
 def add_noise(x, y, invariant, noise_level=0.05):
     """
     Adds a bit of noise to all the x,y points that are present.
@@ -153,26 +151,6 @@ def augment(x, y, invariant):
         
     return x, y
     
-loaded_data = [load_from_prefix(x) for x in prefixes]
-for i in range(1, len(loaded_data)):
-    np.concatenate((loaded_data[0][0], loaded_data[i][0]), axis=0)
-    np.concatenate((loaded_data[0][1], loaded_data[i][1]), axis=0)
-
-joints_normalized = loaded_data[0][0]
-right_of_way = loaded_data[0][1]
-
-pre_split_augment = True
-post_split_augment = False
-
-if pre_split_augment:
-    joints_normalized, right_of_way = augment(joints_normalized, right_of_way, -9999.0)
-    
-# Split the data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(joints_normalized, right_of_way, test_size=0.2, random_state=42)
-
-if post_split_augment:
-    X_train, y_train = augment(X_train, y_train, -9999.0)
-
 class Attention(Layer):
     def __init__(self, **kwargs):
         super(Attention, self).__init__(**kwargs)
@@ -194,7 +172,7 @@ class Attention(Layer):
 # Build the model with L2 regularization
 def create_model():
     # Define the input
-    input_layer = Input(shape=(125, 48)) 
+    input_layer = Input(shape=(125, 48))
     # LSTM layers 
     lstm_out = LSTM(64, return_sequences=True, kernel_regularizer=l2(0.01))(input_layer)
     lstm_out = Dropout(0.3)(lstm_out) 
@@ -225,39 +203,65 @@ def create_model():
     model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
-do_kfold = False
 
-if do_kfold:
-    # Early stopping callback
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+if __name__ == "__main__":
+    prefixes = ["C:\\Users\\drtod\\Documents\\fencing\\Shanghai_Red", "C:\\Users\\drtod\\Documents\\fencing\\Shanghai_Yellow"]
 
-    # Cross-validation
-    kf = KFold(n_splits=1, shuffle=True, random_state=42)
+    loaded_data = [load_from_prefix(x) for x in prefixes]
+    for i in range(1, len(loaded_data)):
+        np.concatenate((loaded_data[0][0], loaded_data[i][0]), axis=0)
+        np.concatenate((loaded_data[0][1], loaded_data[i][1]), axis=0)
+
+    joints_normalized = loaded_data[0][0]
+    right_of_way = loaded_data[0][1]
     
-    best_model = None
-    best_val_loss = float('inf')
-    for train_index, val_index in kf.split(X_train):
-        X_train_cv, X_val_cv = X_train[train_index], X_train[val_index]
-        y_train_cv, y_val_cv = y_train[train_index], y_train[val_index]
+    pre_split_augment = True
+    post_split_augment = False
+    
+    if pre_split_augment:
+        joints_normalized, right_of_way = augment(joints_normalized, right_of_way, -9999.0)
+        
+    # Split the data into training and testing sets
+    X_train, X_test, y_train, y_test = train_test_split(joints_normalized, right_of_way, test_size=0.2, random_state=42)
+    
+    if post_split_augment:
+        X_train, y_train = augment(X_train, y_train, -9999.0)
+    
+    do_kfold = False
+    
+    if do_kfold:
+        # Early stopping callback
+        early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+    
+        # Cross-validation
+        kf = KFold(n_splits=1, shuffle=True, random_state=42)
+        
+        best_model = None
+        best_val_loss = float('inf')
+        for train_index, val_index in kf.split(X_train):
+            X_train_cv, X_val_cv = X_train[train_index], X_train[val_index]
+            y_train_cv, y_val_cv = y_train[train_index], y_train[val_index]
+            model = create_model()
+            model.fit(X_train_cv, y_train_cv, epochs=200, batch_size=16, validation_data=(X_val_cv, y_val_cv), callbacks=[early_stopping])
+            val_loss = model.evaluate(X_val_cv, y_val_cv, verbose=0)[0]
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model = model
+    else:
+        # Early stopping callback
+        early_stopping = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
         model = create_model()
-        model.fit(X_train_cv, y_train_cv, epochs=200, batch_size=16, validation_data=(X_val_cv, y_val_cv), callbacks=[early_stopping])
-        val_loss = model.evaluate(X_val_cv, y_val_cv, verbose=0)[0]
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_model = model
-else:
-    # Early stopping callback
-    early_stopping = EarlyStopping(monitor='loss', patience=10, restore_best_weights=True)
-    model = create_model()
-    model.fit(X_train, y_train, epochs=200, batch_size=16, callbacks=[early_stopping])
-    best_model = model
+        model.fit(X_train, y_train, epochs=200, batch_size=16, callbacks=[early_stopping])
+        best_model = model
+        
+    # To load, do:
+    # from keras.models import load_model
+    # new_model = load_model(filepath)
+    #torch.save(best_model.state_dict(), "ttfencing_state")
+    #best_model.save("ttfencing_model")
+    best_model.save_weights("ttfencing_weights.h5")
     
-# To load, do:
-# from keras.models import load_model
-# new_model = load_model(filepath)
-best_model.save("ttfencing_model")
-
-# Evaluate the best model on the test set
-loss, accuracy = best_model.evaluate(X_test, y_test)
-print(f'Test Loss: {loss}')
-print(f'Test Accuracy: {accuracy}')
+    # Evaluate the best model on the test set
+    loss, accuracy = best_model.evaluate(X_test, y_test)
+    print(f'Test Loss: {loss}')
+    print(f'Test Accuracy: {accuracy}')

@@ -1760,7 +1760,7 @@
     (property "Reference" "R44" (at 270.51 121.92 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "1M" (at 270.51 124.46 0)
+    (property "Value" "45K" (at 270.51 124.46 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "" (at 266.192 123.19 90)

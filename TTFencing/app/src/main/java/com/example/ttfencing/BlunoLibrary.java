@@ -26,18 +26,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
 
 public class BlunoLibrary {
 
-	private final String [] mStrPermission = {
+	private final String[] mStrPermission = {
 			Manifest.permission.ACCESS_FINE_LOCATION
 	};
 
-	private final List<String>  mPerList   = new ArrayList<>();
-	private final List<String>  mPerNoList = new ArrayList<>();
+	private final List<String> mPerList = new ArrayList<>();
+	private final List<String> mPerNoList = new ArrayList<>();
 
-	private  OnPermissionsResult permissionsResult;
-	private  int requestCode;
+	private OnPermissionsResult permissionsResult;
+	private int requestCode;
 
 	private final static String TAG = BlunoLibrary.class.getSimpleName();
 
@@ -61,7 +62,6 @@ public class BlunoLibrary {
 	private BluetoothAdapter mBluetoothAdapter;
 
 	private BlunoListener blunoListener;
-
 
 
 //    private boolean mScanning = false;
@@ -101,6 +101,7 @@ public class BlunoLibrary {
 			}
 		}
 	}
+
 	// Connecting Timeout Handler
 	private Runnable mConnectingOverTimeRunnable = new Runnable() {
 
@@ -288,6 +289,7 @@ public class BlunoLibrary {
 		void onDeviceDetected(final BluetoothDevice device, int rssi, byte[] scanRecord);
 
 		void onConnectionStateChange(ConnectionStateEnum state);
+
 		// void onConnectionStateChange(ConnectionStateEnum state, String deviceName, String deviceAddress);
 		void onSerialReceived(String data);
 	}
@@ -341,7 +343,10 @@ public class BlunoLibrary {
 			} else {
 				gattServiceIntent = new Intent(mainActivity, BluetoothLeService2.class);
 			}
-			mainActivity.bindService(gattServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+			boolean successfullyBound = mainActivity.bindService(gattServiceIntent, mServiceConnection, Context.BIND_AUTO_CREATE);
+			if (!successfullyBound) {
+				Log.e("Bluetooth", "Service did not properly connect.");
+			}
 
 			registerReceiver();
 
@@ -362,6 +367,18 @@ public class BlunoLibrary {
 	@SuppressWarnings("deprecation")
 	public void stopScan() {
 		if (mConnectionState == ConnectionStateEnum.isScanning) {
+			/*
+			if (ActivityCompat.checkSelfPermission(mainActivity, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+				// TODO: Consider calling
+				//    ActivityCompat#requestPermissions
+				// here to request the missing permissions, and then overriding
+				//   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+				//                                          int[] grantResults)
+				// to handle the case where the user grants the permission. See the documentation
+				// for ActivityCompat#requestPermissions for more details.
+				return;
+			}
+			 */
 			mBluetoothAdapter.stopLeScan(mLeScanCallback);
 			changeState(ConnectionStateEnum.isToScan);
 		}
@@ -381,12 +398,12 @@ public class BlunoLibrary {
 		setBaudRate(baudrate);
 		setPassword(password);
 
-		Log.e(TAG, "BlunoLibrary::connect");
+		Log.i(TAG, "BlunoLibrary::connect");
 		if (slot == 0) {
 			if (mBluetoothLeService != null) {
-				Log.e(TAG, "BlunoLibrary::connect::before_connect" + slot);
+				Log.i(TAG, "BlunoLibrary::connect::before_connect" + slot);
 				if (mBluetoothLeService.connect(address)) {
-					Log.e(TAG, "BlunoLibrary::connect::success" + slot);
+					Log.i(TAG, "BlunoLibrary::connect::success" + slot);
 					changeState(ConnectionStateEnum.isConnecting);
 					mHandler.postDelayed(mConnectingOverTimeRunnable, 10000);
 					return true;
@@ -398,9 +415,9 @@ public class BlunoLibrary {
 			}
 		} else {
 			if (mBluetoothLeService2 != null) {
-				Log.e(TAG, "BlunoLibrary::connect::before_connect" + slot);
+				Log.i(TAG, "BlunoLibrary::connect::before_connect" + slot);
 				if (mBluetoothLeService2.connect(address)) {
-					Log.e(TAG, "BlunoLibrary::connect::success" + slot);
+					Log.i(TAG, "BlunoLibrary::connect::success" + slot);
 					changeState(ConnectionStateEnum.isConnecting);
 					mHandler.postDelayed(mConnectingOverTimeRunnable, 10000);
 					return true;

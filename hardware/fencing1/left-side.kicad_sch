@@ -1710,7 +1710,7 @@
     (property "Reference" "R29" (at 269.24 121.92 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
-    (property "Value" "1M" (at 269.24 124.46 0)
+    (property "Value" "45K" (at 269.24 124.46 0)
       (effects (font (size 1.27 1.27)) (justify left))
     )
     (property "Footprint" "" (at 264.922 123.19 90)

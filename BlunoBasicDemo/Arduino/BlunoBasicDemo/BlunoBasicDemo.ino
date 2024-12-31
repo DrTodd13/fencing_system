@@ -120,7 +120,7 @@ void sendTouched() {
 
 void sendText(char *s) {
   char slen[100];
-  if (!for_ttenfencing) {
+  if (!for_ttfencing) {
     sprintf(slen, "3%4d%s", strlen(s), s);
     Serial.print(slen);
   }
@@ -128,7 +128,7 @@ void sendText(char *s) {
 
 void sendInt(int s) {
   char buf[20];
-  if (!for_ttenfencing) {
+  if (!for_ttfencing) {
     sprintf(buf, "%d", s);
     sendText(buf);
   }
